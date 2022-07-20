@@ -1,3 +1,5 @@
+from typing import Tuple
+
 from pyftdi.ftdi import Ftdi
 from pyftdi.spi import SpiController, SpiPort
 from pyftdi.usbtools import UsbTools, UsbDeviceDescriptor
@@ -6,7 +8,7 @@ import constants
 from constants import HKCmd
 
 
-def get_device() -> tuple[UsbDeviceDescriptor, int]:
+def get_device() -> tuple(UsbDeviceDescriptor, int):
   devs = Ftdi.find_all(constants.CARAVEL_FTDI_VPS)
   if not devs:
     raise RuntimeError('No board found')
