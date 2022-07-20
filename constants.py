@@ -14,22 +14,53 @@ class HKCmd(IntEnum):
 
 
 # Winbond Flash Constants
-CMD_READ_STATUS = 0x05  # Read status register
-CMD_WRITE_ENABLE = 0x06  # Write enable
-CMD_WRITE_DISABLE = 0x04  # Write disable
-CMD_PROGRAM_PAGE = 0x02  # Write page
-CMD_EWSR = 0x50  # Enable write status register
-CMD_WRSR = 0x01  # Write status register
-CMD_ERASE_SUBSECTOR = 0x20
-CMD_ERASE_HSECTOR = 0x52
-CMD_ERASE_SECTOR = 0xD8
-# CMD_ERASE_CHIP = 0xC7
-CMD_ERASE_CHIP = 0x60
-CMD_RESET_CHIP = 0x99
-CMD_JEDEC_DATA = 0x9f
+class FlashCmd(IntEnum):
+  WriteEn = 0x06
+  VolSRWriteEn = 0x50
+  WriteDs = 0x04
+  ReadSt1 = 0x05
+  WriteSt1 = 0x01
+  ReadSt2 = 0x35
+  WriteSt2 = 0x31
+  ReadSt3 = 0x15
+  WriteSt3 = 0x11
+  ChipErase = 0xC7
+  _ChipErase = 0x60  # Equivalent to 0xC7
+  EraseSuspend = 0x75
+  EraseResume = 0x7A
+  PowerDown = 0xB9
+  RelPowerDown = 0xAB
+  DeviceID = 0x90
+  Jedec = 0x9F
+  GlobalLock = 0x7E
+  GlobalUnlock = 0x98
+  EnterQPI = 0x38  # Probably should never use this
+  ResetEn = 0x66
+  Reset = 0x99
+  UniqueID = 0x4B
+  WritePage = 0x02
+  QWritePage = 0x32
+  EraseSector = 0x20
+  EraseBlock32 = 0x52
+  EraseBlock64 = 0xD8
+  ReadData = 0x03
+  FastRead = 0x0B
+  FastReadD = 0x3B
+  FastReadQ = 0x6B
+  ReadSFDP = 0x5A
+  EraseSec = 0x44
+  WriteSec = 0x42
+  ReadSec = 0x48
+  BlockLock = 0x36
+  BlockUnlock = 0x39
+  RdBlockLock = 0x3D
+  FastReadDIO = 0xBB
+  DeviceIDDIO = 0x92
+  SetBurst = 0x77
+  FastReadQIO = 0xEB
+  WordReadQIO = 0xE7
+  OWordReadQIO = 0xE3
+  DeviceIDQIO = 0x94
 
-CMD_READ_LO_SPEED = 0x03  # Read @ low speed
-CMD_READ_HI_SPEED = 0x0B  # Read @ high speed
-ADDRESS_WIDTH = 3
 
 JEDEC_ID = 0xEF

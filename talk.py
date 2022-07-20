@@ -1,35 +1,12 @@
+from pathlib import Path
+from typing import Union, Tuple
+
 from pyftdi.ftdi import Ftdi
 from pyftdi.spi import SpiController, SpiPort
 from pyftdi.usbtools import UsbTools, UsbDeviceDescriptor
 
 import constants
-from constants import HKCmd
-
-
-def get_device() -> tuple[UsbDeviceDescriptor, int]:
-  devs = Ftdi.find_all(constants.CARAVEL_FTDI_VPS)
-  if not devs:
-    raise RuntimeError('No board found')
-  elif len(devs) > 1:
-    raise RuntimeError('Multiple valid devices found')
-  return devs[0]
-
-
-def desc_to_url(desc: tuple[UsbDeviceDescriptor, int]) -> str:
-  return UsbTools.build_dev_strings('ftdi', Ftdi.VENDOR_IDS, Ftdi.PRODUCT_IDS,
-                                    [desc])[0][0]
-
-
-def connectconfig_spi(url: str) -> SpiController:
-  spi = SpiController(cs_count=constants.CARAVEL_CS_COUNT)
-  spi.configure(url)
-  return spi
-
-
-def do_the_thing():
-  desc = get_device()
-  url = desc_to_url(desc)
-  return connectconfig_spi(url)
+from constants import HKCmd, FlashCmd
 
 
 class HKMaster:
@@ -39,12 +16,13 @@ class HKMaster:
     self.port = port
 
   @staticmethod
-  def __build_cmd(op: int, addr: int, length: int = 0, data: bytes = b''):
+  def __build_cmd(op: int, addr: int, length: int = 0,
+                  data: bytes = b'') -> bytes:
     cmd = op | (length << 3)
     return int.to_bytes(cmd, 1, 'big') + int.to_bytes(addr, 1, 'big') + data
 
   @staticmethod
-  def __n_cmd(op: int, addr: int, length: int = 0, data: bytes = b''):
+  def __n_cmd(op: int, addr: int, length: int = 0, data: bytes = b'') -> bytes:
     if data:
       length = len(data)
     if not 0 < length < 8:
@@ -52,7 +30,7 @@ class HKMaster:
     return HKMaster.__build_cmd(op, addr, length, data)
 
   @staticmethod
-  def __s_cmd(op: int, addr: int, data: bytes = b''):
+  def __s_cmd(op: int, addr: int, data: bytes = b'') -> bytes:
     return HKMaster.__build_cmd(op, addr, 0, data)
 
   def write_n(self, data: bytes, address: int) -> None:
@@ -85,7 +63,64 @@ class HKMaster:
         int.to_bytes(HKCmd.UsrPass, 1, 'big') + data, read_len)
 
 
-spi = do_the_thing()
-gpio = spi.get_gpio()
-port = spi.get_port(cs=1, freq=12E6, mode=0)
-cmd = HKMaster(port)
+class FlashMaster:
+  __slots__ = 'hk'
+
+  def __init__(self, hk: HKMaster) -> None:
+    self.hk = hk
+    self.__verify()
+
+  def __run_cmd(self, op: int, read: int, data: bytes = b''):
+    return self.hk.mgt_pass(op.to_bytes(1, 'big') + data, read)
+
+  def __verify(self) -> None:
+    mfg, _, _ = self.read_jedec()
+    if mfg != constants.JEDEC_ID:
+      raise RuntimeError('Invalid Manufacturer ID')
+
+  def read_jedec(self) -> Tuple[int, int, int]:
+    return tuple(self.__run_cmd(FlashCmd.Jedec, 3))
+
+
+class CaravelSpi(SpiController):
+  def __init__(self) -> None:
+    device = self.get_device()
+    url = UsbTools.build_dev_strings('ftdi', Ftdi.VENDOR_IDS, Ftdi.PRODUCT_IDS,
+                                     [device])[0][0]
+    super().__init__(constants.CARAVEL_CS_COUNT)
+    self.configure(url)
+
+    self._hk = HKMaster(self.get_port(cs=1, freq=12E6))
+    self._flash = FlashMaster(self._hk)
+
+  @staticmethod
+  def get_device() -> tuple[UsbDeviceDescriptor, int]:
+    devs = Ftdi.find_all(constants.CARAVEL_FTDI_VPS)
+    if not devs:
+      raise RuntimeError('No board found')
+    elif len(devs) > 1:
+      raise RuntimeError('Multiple valid devices found')
+    return devs[0]
+
+  def get_hk(self) -> HKMaster:
+    return self._hk
+
+  def get_flash(self) -> FlashMaster:
+    return self._flash
+
+
+class Flasher:
+  __slots__ = 'spi', 'hk'
+
+  def __init__(self, spi: CaravelSpi) -> None:
+    self.spi = spi
+    self.hk = spi.get_hk()
+
+  def __verify(self) -> None:
+    pass
+
+  def flash_bytes(self, data: bytes) -> None:
+    pass
+
+  def flash_file(self, path: Union[str, Path]) -> None:
+    pass
