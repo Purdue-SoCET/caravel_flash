@@ -62,7 +62,17 @@ class FlashCmd(IntEnum):
   OWordReadQIO = 0xE3
   DeviceIDQIO = 0x94
 
-
+# Winbond Flash Status Register
+class FlashStatus(IntEnum):
+  St1Busy = 0b00000001 # Busy/Work-in-progress
+  St1WEL = 0b00000010  # Write Enable Latch
+  St1BP0 = 0b00000100  # Block Protect Bits 0
+  St1BP1 = 0b00001000  # Block Protect Bits 1
+  St1BP2 = 0b00010000  # Block Protect Bits 2
+  St1TB = 0b00100000   # Top/Bottom Protect Bits
+  St1SEC = 0b01000000  # Sector Protect Bit
+  St1SRP = 0b10000000  # Status Register Protect 0
+  
 CmdResponseSize = {
     FlashCmd.Jedec: 3,
 }

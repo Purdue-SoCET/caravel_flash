@@ -85,6 +85,13 @@ class FlashMaster:
   def reset(self) -> None:
     self.__run_cmd(FlashCmd.ResetEn)
     self.__run_cmd(FlashCmd.Reset)
+    
+  def erase(self) -> None:
+    self.__run_cmd(FlashCmd.WriteEn)
+    self.__run_cmd(FlashCmd.ChipErase)
+    
+  def is_busy(self) -> Boolean:
+    return self.__run_cmd(FlashCmd.ReadSt1) & FlashStatus.St1Busy
 
 
 class CaravelSpi(SpiController):
