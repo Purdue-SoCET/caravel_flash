@@ -63,4 +63,8 @@ class FlashCmd(IntEnum):
   DeviceIDQIO = 0x94
 
 
+CmdResponseSize = {
+    FlashCmd.Jedec: 3,
+}
+
 JEDEC_ID = 0xEF
