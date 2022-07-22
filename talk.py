@@ -99,7 +99,7 @@ class CaravelSpi(SpiController):
     self._flash = FlashMaster(self._hk)
 
   @staticmethod
-  def get_device() -> tuple[UsbDeviceDescriptor, int]:
+  def get_device() -> Tuple[UsbDeviceDescriptor, int]:
     devs = Ftdi.find_all(constants.CARAVEL_FTDI_VPS)
     if not devs:
       raise RuntimeError('No board found')
