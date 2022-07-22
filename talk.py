@@ -1,12 +1,12 @@
 from pathlib import Path
-from typing import Union, Tuple
+from typing import Sequence, Union, Tuple
 
 from pyftdi.ftdi import Ftdi
 from pyftdi.spi import SpiController, SpiPort
 from pyftdi.usbtools import UsbTools, UsbDeviceDescriptor
 
 import constants
-from constants import HKCmd, FlashCmd
+from constants import HKCmd, FlashCmd, CmdResponseSize
 
 
 class HKMaster:
@@ -70,8 +70,9 @@ class FlashMaster:
     self.hk = hk
     self.__verify()
 
-  def __run_cmd(self, op: int, read: int, data: bytes = b''):
-    return self.hk.mgt_pass(op.to_bytes(1, 'big') + data, read)
+  def __run_cmd(self, op: int, data: bytes = b''):
+    readlen = CmdResponseSize.get(op, 0)
+    return self.hk.mgt_pass(op.to_bytes(1, 'big') + data, readlen)
 
   def __verify(self) -> None:
     mfg, _, _ = self.read_jedec()
@@ -79,7 +80,11 @@ class FlashMaster:
       raise RuntimeError('Invalid Manufacturer ID')
 
   def read_jedec(self) -> Tuple[int, int, int]:
-    return tuple(self.__run_cmd(FlashCmd.Jedec, 3))
+    return tuple(self.__run_cmd(FlashCmd.Jedec))
+
+  def reset(self) -> None:
+    self.__run_cmd(FlashCmd.ResetEn)
+    self.__run_cmd(FlashCmd.Reset)
 
 
 class CaravelSpi(SpiController):
@@ -94,7 +99,7 @@ class CaravelSpi(SpiController):
     self._flash = FlashMaster(self._hk)
 
   @staticmethod
-  def get_device() -> tuple[UsbDeviceDescriptor, int]:
+  def get_device() -> Tuple[UsbDeviceDescriptor, int]:
     devs = Ftdi.find_all(constants.CARAVEL_FTDI_VPS)
     if not devs:
       raise RuntimeError('No board found')
@@ -110,14 +115,12 @@ class CaravelSpi(SpiController):
 
 
 class Flasher:
-  __slots__ = 'spi', 'hk'
+  __slots__ = 'spi', 'hk', 'flash'
 
   def __init__(self, spi: CaravelSpi) -> None:
     self.spi = spi
     self.hk = spi.get_hk()
-
-  def __verify(self) -> None:
-    pass
+    self.flash = spi.get_flash()
 
   def flash_bytes(self, data: bytes) -> None:
     pass
