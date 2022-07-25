@@ -2,7 +2,9 @@ from enum import IntEnum
 
 CARAVEL_FTDI_VPS = ((1027, 24596), )
 CARAVEL_CS_COUNT = 2
+CARAVEL_MFG_ID = 0x0456
 FTDI_MAX_FREQ = 12E6  # Hz
+POLL_WAIT = 1.0  # seconds
 
 
 # Commands recognized by Caravel HouseKeeping SPI
@@ -62,19 +64,25 @@ class FlashCmd(IntEnum):
   OWordReadQIO = 0xE3
   DeviceIDQIO = 0x94
 
-# Winbond Flash Status Register Bits
-class FlashStatus(IntEnum):
-  St1Busy = 0b00000001 # Busy/Work-in-progress
-  St1WEL = 0b00000010  # Write Enable Latch
-  St1BP0 = 0b00000100  # Block Protect Bits 0
-  St1BP1 = 0b00001000  # Block Protect Bits 1
-  St1BP2 = 0b00010000  # Block Protect Bits 2
-  St1TB = 0b00100000   # Top/Bottom Protect Bits
-  St1SEC = 0b01000000  # Sector Protect Bit
-  St1SRP = 0b10000000  # Status Register Protect 0
-  
+
 CmdResponseSize = {
     FlashCmd.Jedec: 3,
+    FlashCmd.ReadSt1: 1,
+    FlashCmd.ReadSt2: 1,
+    FlashCmd.ReadSt3: 1,
 }
+
+
+# Winbond Flash Status Register
+class FlashStatus(IntEnum):
+  St1Busy = 0x01  # Busy/Work-in-progress
+  St1WEL = 0x02  # Write Enable Latch
+  St1BP0 = 0x04  # Block Protect Bits 0
+  St1BP1 = 0x08  # Block Protect Bits 1
+  St1BP2 = 0x10  # Block Protect Bits 2
+  St1TB = 0x20  # Top/Bottom Protect Bits
+  St1SEC = 0x40  # Sector Protect Bit
+  St1SRP = 0x80  # Status Register Protect 0
+
 
 JEDEC_ID = 0xEF

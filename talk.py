@@ -1,13 +1,14 @@
 import time
 from pathlib import Path
-from typing import Sequence, Union, Tuple
+from typing import Union, Tuple
+from time import sleep
 
 from pyftdi.ftdi import Ftdi
 from pyftdi.spi import SpiController, SpiPort
 from pyftdi.usbtools import UsbTools, UsbDeviceDescriptor
 
 import constants
-from constants import HKCmd, FlashCmd, CmdResponseSize, FlashStatus
+from constants import HKCmd, FlashCmd, FlashStatus, CmdResponseSize
 
 
 class HKMaster:
@@ -15,6 +16,12 @@ class HKMaster:
 
   def __init__(self, port: SpiPort) -> None:
     self.port = port
+    self.__verify()
+
+  def __verify(self):
+    mfg = int.from_bytes(self.read_n(0x01, 2), 'big')
+    if mfg != constants.CARAVEL_MFG_ID:
+      raise RuntimeError('Invalid Caravel manufacturer ID')
 
   @staticmethod
   def __build_cmd(op: int, addr: int, length: int = 0,
@@ -34,24 +41,33 @@ class HKMaster:
   def __s_cmd(op: int, addr: int, data: bytes = b'') -> bytes:
     return HKMaster.__build_cmd(op, addr, 0, data)
 
-  def write_n(self, data: bytes, address: int) -> None:
+  def write_n(self, address: int, data: bytes) -> None:
     self.port.write(self.__n_cmd(HKCmd.Write, address, data=data))
 
-  def read_n(self, length: int, address: int) -> bytes:
+  def read_n(self, address: int, length: int) -> bytes:
     return self.port.exchange(self.__n_cmd(HKCmd.Read, address, length),
                               length)
 
-  def rw_n(self, data: bytes, address: int) -> bytes:
+  def rw_n(self, address: int, data: bytes) -> bytes:
     return self.port.exchange(
         self.__n_cmd(HKCmd.Read | HKCmd.Write, address, data=data), len(data))
 
-  def write_s(self, data: bytes, address: int) -> None:
+  def read_b(self, address: int) -> int:
+    return self.read_n(address, 1)[0]
+
+  def write_b(self, address: int, data: int) -> None:
+    self.write_n(address, data.to_bytes(1, 'big'))
+
+  def rw_b(self, address: int, data: int) -> int:
+    return self.rw_n(address, data.to_bytes(1, 'big'))[0]
+
+  def write_s(self, address: int, data: bytes) -> None:
     self.port.write(self.__s_cmd(HKCmd.Write, address, data))
 
-  def read_s(self, length: int, address: int) -> bytes:
+  def read_s(self, address: int, length: int) -> bytes:
     return self.port.exchange(self.__s_cmd(HKCmd.Read, address), length)
 
-  def rw_s(self, data: bytes, address: int) -> bytes:
+  def rw_s(self, address: int, data: bytes) -> bytes:
     return self.port.exchange(
         self.__s_cmd(HKCmd.Read | HKCmd.Write, address, data), len(data))
 
@@ -78,7 +94,7 @@ class FlashMaster:
   def __verify(self) -> None:
     mfg, _, _ = self.read_jedec()
     if mfg != constants.JEDEC_ID:
-      raise RuntimeError('Invalid Manufacturer ID')
+      raise RuntimeError('Invalid flash manufacturer ID')
 
   def read_jedec(self) -> Tuple[int, int, int]:
     return tuple(self.__run_cmd(FlashCmd.Jedec))
@@ -86,16 +102,24 @@ class FlashMaster:
   def reset(self) -> None:
     self.__run_cmd(FlashCmd.ResetEn)
     self.__run_cmd(FlashCmd.Reset)
-    
+
   def erase(self) -> None:
     self.__run_cmd(FlashCmd.WriteEn)
     self.__run_cmd(FlashCmd.ChipErase)
-    
-  def get_status(self) -> int:
-    return int.from_bytes(self.__run_cmd(FlashCmd.ReadSt1), 'big')
-    
+    while self.is_busy():
+      sleep(constants.POLL_WAIT)
+
+  def read_st1(self) -> int:
+    return self.__run_cmd(FlashCmd.ReadSt1)[0]
+
+  def read_st2(self) -> int:
+    return self.__run_cmd(FlashCmd.ReadSt2)[0]
+
+  def read_st3(self) -> int:
+    return self.__run_cmd(FlashCmd.ReadSt3)[0]
+
   def is_busy(self) -> bool:
-    return bool(self.get_status() & FlashStatus.St1Busy)
+    return bool(self.read_st1() & FlashStatus.St1Busy)
 
 
 class CaravelSpi(SpiController):
@@ -134,7 +158,10 @@ class Flasher:
     self.flash = spi.get_flash()
 
   def flash_bytes(self, data: bytes) -> None:
-    pass
+    self.flash.erase()
 
-  def flash_file(self, path: Union[str, Path]) -> None:
-    pass
+  def flash_bin(self, path: Union[str, Path]) -> None:
+    self.flash.erase()
+
+  def flash_hex(self, path: Union[str, Path]) -> None:
+    self.flash.erase()
