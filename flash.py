@@ -1,8 +1,9 @@
-from talk import CaravelSpi
+from talk import CaravelSpi, Flasher
 
 spi = CaravelSpi()
 hk = spi.get_hk()
 flash = spi.get_flash()
+flasher = Flasher(spi)
 
 mfg = int.from_bytes(hk.read_n(0x01, 2), 'big')
 product = hk.read_b(0x03)
@@ -21,7 +22,7 @@ jedec, _, _ = flash.read_jedec()
 print(f'JEDEC = {jedec:x02}')
 
 print('Erasing chip...')
-flash.erase()
+flasher.erase()
 
 print('Done')
 print(f'status = 0x{flash.read_st1():x02}\n')

@@ -1,4 +1,3 @@
-import time
 from pathlib import Path
 from typing import Union, Tuple
 from time import sleep
@@ -95,6 +94,10 @@ class FlashMaster:
     mfg, _, _ = self.read_jedec()
     if mfg != constants.JEDEC_ID:
       raise RuntimeError('Invalid flash manufacturer ID')
+  
+  def __wait(self) -> None:
+    while self.is_busy():
+      sleep(constants.POLL_WAIT)
 
   def read_jedec(self) -> Tuple[int, int, int]:
     return tuple(self.__run_cmd(FlashCmd.Jedec))
@@ -106,8 +109,7 @@ class FlashMaster:
   def erase(self) -> None:
     self.__run_cmd(FlashCmd.WriteEn)
     self.__run_cmd(FlashCmd.ChipErase)
-    while self.is_busy():
-      sleep(constants.POLL_WAIT)
+    self.__wait()
 
   def read_st1(self) -> int:
     return self.__run_cmd(FlashCmd.ReadSt1)[0]
@@ -120,6 +122,11 @@ class FlashMaster:
 
   def is_busy(self) -> bool:
     return bool(self.read_st1() & FlashStatus.St1Busy)
+  
+  def write_page(self, addr: int, data : bytes) -> None:
+    self.__run_cmd(FlashCmd.WriteEn)
+    self.__run_cmd(FlashCmd.WritePage, addr.to_bytes(3, 'big') + data)
+    self.__wait()
 
 
 class CaravelSpi(SpiController):
@@ -157,11 +164,40 @@ class Flasher:
     self.hk = spi.get_hk()
     self.flash = spi.get_flash()
 
-  def flash_bytes(self, data: bytes) -> None:
+  def __reset(self, state: int) -> None:
+    self.hk.write_b(0x0b, state)
+  
+  def __flush(self, addr: int, buf: bytes) -> None:
+    while buf:
+      self.flash.write_page(addr, buf[:256])
+      addr += 256
+      buf = buf[256:]
+  
+  def erase(self) -> None:
+    self.__reset(1)
     self.flash.erase()
+    self.__reset(0)
+
+  def flash_bytes(self, data: bytes) -> None:
+    self.__reset(1)
+    self.__reset(0)
 
   def flash_bin(self, path: Union[str, Path]) -> None:
-    self.flash.erase()
+    pass
 
   def flash_hex(self, path: Union[str, Path]) -> None:
-    self.flash.erase()
+    self.__reset(1)
+
+    addr = 0
+    buf = b''
+    with open(path) as f:
+      for line in f:
+        if line[0] == '@':
+          self.__flush(buf, addr)
+          buf = b''
+          addr = int(line[1:], 16)
+        else:
+          buf += bytes.fromhex(line)
+    self.__flush(buf, addr)
+    
+    self.__reset(0)
