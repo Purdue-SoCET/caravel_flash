@@ -62,7 +62,7 @@ class FlashCmd(IntEnum):
   OWordReadQIO = 0xE3
   DeviceIDQIO = 0x94
 
-# Winbond Flash Status Register
+# Winbond Flash Status Register Bits
 class FlashStatus(IntEnum):
   St1Busy = 0b00000001 # Busy/Work-in-progress
   St1WEL = 0b00000010  # Write Enable Latch

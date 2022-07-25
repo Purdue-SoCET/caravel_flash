@@ -1,3 +1,4 @@
+import time
 from pathlib import Path
 from typing import Sequence, Union, Tuple
 
@@ -6,7 +7,7 @@ from pyftdi.spi import SpiController, SpiPort
 from pyftdi.usbtools import UsbTools, UsbDeviceDescriptor
 
 import constants
-from constants import HKCmd, FlashCmd, CmdResponseSize
+from constants import HKCmd, FlashCmd, CmdResponseSize, FlashStatus
 
 
 class HKMaster:
@@ -90,8 +91,11 @@ class FlashMaster:
     self.__run_cmd(FlashCmd.WriteEn)
     self.__run_cmd(FlashCmd.ChipErase)
     
+  def get_status(self) -> int:
+    return int.from_bytes(self.__run_cmd(FlashCmd.ReadSt1), 'big')
+    
   def is_busy(self) -> bool:
-    return self.__run_cmd(FlashCmd.ReadSt1) & FlashStatus.St1Busy
+    return bool(self.get_status() & FlashStatus.St1Busy)
 
 
 class CaravelSpi(SpiController):
