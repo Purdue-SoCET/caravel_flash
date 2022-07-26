@@ -1,5 +1,5 @@
 import sys
-from talk import CaravelSpi, Flasher
+from CaravelSpi import CaravelSpi, Flasher
 
 spi = CaravelSpi()
 hk = spi.get_hk()

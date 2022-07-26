@@ -6,8 +6,8 @@ from pyftdi.ftdi import Ftdi
 from pyftdi.spi import SpiController, SpiPort
 from pyftdi.usbtools import UsbTools, UsbDeviceDescriptor
 
-import constants
-from constants import HKCmd, FlashCmd, FlashStatus, CmdResponseSize
+import CaravelSpi.constants as constants
+from CaravelSpi.constants import HKCmd, FlashCmd, FlashStatus, CmdResponseSize
 
 
 class HKMaster:
