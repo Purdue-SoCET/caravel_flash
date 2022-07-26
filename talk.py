@@ -201,3 +201,6 @@ class Flasher:
     self.__flush(buf, addr)
     
     self.__reset(0)
+    
+  def verify_flash(self, path: Union[str, Path]) -> None:
+    pass
