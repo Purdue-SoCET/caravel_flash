@@ -24,7 +24,7 @@ class HKMaster:
 
   @staticmethod
   def __build_cmd(op: int, addr: int, length: int = 0,
-                  data: bytes = b'') -> bytes:
+      data: bytes = b'') -> bytes:
     cmd = op | (length << 3)
     return int.to_bytes(cmd, 1, 'big') + int.to_bytes(addr, 1, 'big') + data
 
@@ -44,8 +44,7 @@ class HKMaster:
     self.port.write(self.__n_cmd(HKCmd.Write, address, data=data))
 
   def read_n(self, address: int, length: int) -> bytes:
-    return self.port.exchange(self.__n_cmd(HKCmd.Read, address, length),
-                              length)
+    return self.port.exchange(self.__n_cmd(HKCmd.Read, address, length), length)
 
   def rw_n(self, address: int, data: bytes) -> bytes:
     return self.port.exchange(
@@ -86,15 +85,17 @@ class FlashMaster:
     self.hk = hk
     self.__verify()
 
-  def __run_cmd(self, op: int, data: bytes = b''):
-    readlen = CmdResponseSize.get(op, 0)
+  def __run_cmd(self, op: int, data: bytes = b'', readlen: Union[int,
+      None] = None) -> bytes:
+    if readlen is None:
+      readlen = CmdResponseSize.get(op, 0)
     return self.hk.mgt_pass(op.to_bytes(1, 'big') + data, readlen)
 
   def __verify(self) -> None:
     mfg, _, _ = self.read_jedec()
     if mfg != constants.JEDEC_ID:
       raise RuntimeError('Invalid flash manufacturer ID')
-  
+
   def __wait(self) -> None:
     while self.is_busy():
       sleep(constants.POLL_WAIT)
@@ -122,18 +123,21 @@ class FlashMaster:
 
   def is_busy(self) -> bool:
     return bool(self.read_st1() & FlashStatus.St1Busy)
-  
-  def write_page(self, addr: int, data : bytes) -> None:
+
+  def write_page(self, addr: int, data: bytes) -> None:
     self.__run_cmd(FlashCmd.WriteEn)
     self.__run_cmd(FlashCmd.WritePage, addr.to_bytes(3, 'big') + data)
     self.__wait()
+
+  def read_data(self, addr: int, readlen: int) -> bytes:
+    return self.__run_cmd(FlashCmd.ReadData, addr.to_bytes(3, 'big'), readlen)
 
 
 class CaravelSpi(SpiController):
   def __init__(self) -> None:
     device = self.get_device()
     url = UsbTools.build_dev_strings('ftdi', Ftdi.VENDOR_IDS, Ftdi.PRODUCT_IDS,
-                                     [device])[0][0]
+        [device])[0][0]
     super().__init__(constants.CARAVEL_CS_COUNT)
     self.configure(url)
 
@@ -166,13 +170,17 @@ class Flasher:
 
   def __reset(self, state: int) -> None:
     self.hk.write_b(0x0b, state)
-  
+
   def __flush(self, addr: int, buf: bytes) -> None:
     while buf:
       self.flash.write_page(addr, buf[:256])
       addr += 256
       buf = buf[256:]
-  
+
+  def __verify(self, addr: int, buf: bytes) -> None:
+    if buf != self.flash.read_data(addr, len(buf)):
+      raise RuntimeError('Verification failure')
+
   def erase(self) -> None:
     self.__reset(1)
     self.flash.erase()
@@ -180,10 +188,21 @@ class Flasher:
 
   def flash_bytes(self, data: bytes) -> None:
     self.__reset(1)
+    self.__flush(0, data)
     self.__reset(0)
 
   def flash_bin(self, path: Union[str, Path]) -> None:
-    pass
+    self.__reset(1)
+
+    with open(path, mode='rb') as f:
+      buf = f.read(256)
+      addr = 0
+      while buf:
+        self.__flush(addr, buf)
+        buf = f.read(256)
+        addr += 256
+
+    self.__reset(0)
 
   def flash_hex(self, path: Union[str, Path]) -> None:
     self.__reset(1)
@@ -193,14 +212,48 @@ class Flasher:
     with open(path) as f:
       for line in f:
         if line[0] == '@':
-          self.__flush(buf, addr)
-          buf = b''
+          if buf:
+            self.__flush(addr, buf)
+            buf = b''
           addr = int(line[1:], 16)
         else:
           buf += bytes.fromhex(line)
-    self.__flush(buf, addr)
-    
+    self.__flush(addr, buf)
+
     self.__reset(0)
-    
-  def verify_flash(self, path: Union[str, Path]) -> None:
-    pass
+
+  def verify_bytes(self, data: bytes) -> None:
+    self.__reset(1)
+    self.__verify(0, data)
+    self.__reset(0)
+
+  def verify_bin(self, path: Union[str, Path]) -> None:
+    self.__reset(1)
+
+    with open(path, mode='rb') as f:
+      buf = f.read(256)
+      addr = 0
+      while buf:
+        self.__verify(addr, buf)
+        buf = f.read(256)
+        addr += 256
+
+    self.__reset(0)
+
+  def verify_hex(self, path: Union[str, Path]) -> None:
+    self.__reset(1)
+
+    addr = 0
+    buf = b''
+    with open(path) as f:
+      for line in f:
+        if line[0] == '@':
+          if buf:
+            self.__verify(addr, buf)
+            buf = b''
+          addr = int(line[1:], 16)
+        else:
+          buf += bytes.fromhex(line)
+    self.__verify(addr, buf)
+
+    self.__reset(0)
