@@ -1,1 +1,1 @@
-from managers import CaravelSpi, Flasher
+from CaravelSpi.managers import CaravelSpi, Flasher

@@ -1,5 +1,5 @@
 import sys
-from CaravelSpi import CaravelSpi, Flasher
+from CaravelSpi import CaravelSpi, Flasher, util
 
 spi = CaravelSpi()
 hk = spi.get_hk()
@@ -29,6 +29,7 @@ flasher.erase()
 
 print('Writing...')
 flasher.flash_hex(sys.argv[1])
+print(f'Total Bytes: {util.from_hex(sys.argv[1])}')
 
 print('Verifying...')
 flasher.verify_hex(sys.argv[1])
