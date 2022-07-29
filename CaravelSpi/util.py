@@ -24,9 +24,9 @@ def parse_input() -> None:
     print(override)
     
 def get_input_type(input: str) -> str:
-    # file_type = input.partition('.')[2].lower()
-    # if file_type == 'hex' or file_type == 'bin':
-    #     return  file_type
-    # else:
-    #     raise RuntimeError('Invalid input file type. Needs to be .hex (verilog), .bin, or raw bytes')
-    pass
+    file_type = input.partition('.')[2].lower()
+    if file_type == 'hex' or file_type == 'bin':
+        return  file_type
+    else:
+        raise RuntimeError('Invalid input file type. Needs to be .hex (verilog), .bin, or raw bytes')
+    
